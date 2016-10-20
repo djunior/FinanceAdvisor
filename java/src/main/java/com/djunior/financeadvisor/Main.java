@@ -64,7 +64,8 @@ public class Main {
                 String t = askForVendorTag(v);
                 if (! t.equals("")) {
                     System.out.println("Adicionando tag " + t);
-                    db.addTagToVendor(v.getId(),t);
+                    int idtag = db.addTag(t);
+                    db.addTagToVendor(v.getId(),idtag);
                 }
             } catch(IOException e) {
                 e.printStackTrace();
@@ -74,7 +75,7 @@ public class Main {
         }
     }
     
-    public static void discriminateExpanses(ArrayList<TransactionDTO> transactions) {
+    public static void discriminateExpenses(ArrayList<TransactionDTO> transactions) {
         
         HashMap<String,Float> spentPerLocation = new HashMap<>();
         HashMap<String,Float> spentPerDay = new HashMap<>();
@@ -156,7 +157,7 @@ public class Main {
         
         for (Map.Entry<String, ArrayList<TransactionDTO> > entry : transactionsPerMonth.entrySet()) {
             System.out.println("\n\n\n\nMes " + entry.getKey());
-            discriminateExpanses(entry.getValue());
+            discriminateExpenses(entry.getValue());
         }
         
     }
@@ -220,8 +221,11 @@ public class Main {
         
         DBConnector db = createDBConnector();
 //
-        retrieveEmailTransactions();
+//        retrieveEmailTransactions();
         ArrayList<TransactionDTO> transactions = db.getAllTransactions();
+        
+//        addTagToVendors();
+        
         discriminateTransactionsPerMonth(transactions);
         
     }

@@ -23,16 +23,58 @@ public class DBConnector extends DBBase {
         super();
     }
     
-    public void addTagToVendor(int id, String tag) {
+    public int addTag(String name) {
+        
+        System.out.println("DBConnector.addTag(" + name + ")");
+        Connection connection = null;
+        PreparedStatement pstmtInsert = null;
+        PreparedStatement pstmtCheck = null;
+        ResultSet rs = null;
+        int ret = 0;
+        
+        String statementInsert = "INSERT IGNORE INTO tag (tag_name) VALUES (?);";
+        String statementCheck =  "SELECT idtag FROM tag WHERE tag_name=?;";
+        
+        try {
+            connection = getConnection();
+            
+            pstmtInsert = connection.prepareStatement(statementInsert);
+            pstmtInsert.setString(1, name);
+            pstmtInsert.execute();
+            
+            pstmtCheck = connection.prepareStatement(statementCheck);
+            pstmtCheck.setString(1,name);
+            rs = pstmtCheck.executeQuery();
+            
+            while(rs.next()) {
+
+                ret = rs.getInt("idtag");
+                
+                System.out.println("-------------------------- Got idtag! " + ret);
+            }
+        } 
+        catch(SQLException e) { e.printStackTrace(); }
+        finally {
+            try {
+                if (rs != null) rs.close();
+                if (pstmtInsert !=null) pstmtInsert.close();
+                if (pstmtCheck != null) pstmtCheck.close();
+                if (connection != null) connection.close();
+            } catch(SQLException e) {}
+        }
+        return ret;
+    }
+    
+    public void addTagToVendor(int idvendor, int idtag) {
         Connection connection = null;
         PreparedStatement pstmt = null;
         
         try {
             connection = getConnection();
-            String statement = "INSERT INTO tag_to_vendor(vendor,tag) VALUES(?,?);";
+            String statement = "UPDATE vendor SET idtag=? WHERE idvendor=?;";
             pstmt = connection.prepareStatement(statement);
-            pstmt.setInt(1, id);
-            pstmt.setString(2, tag);
+            pstmt.setInt(1, idtag);
+            pstmt.setInt(2, idvendor);
             pstmt.execute();
         } catch(SQLException e) {
             e.printStackTrace();
@@ -53,8 +95,8 @@ public class DBConnector extends DBBase {
         ResultSet rs = null;
         int ret = 0;
         
-        String statementInsert = "INSERT IGNORE INTO vendor (name) VALUES (?);";
-        String statementCheck =  "SELECT idvendor FROM vendor WHERE name=?;";
+        String statementInsert = "INSERT IGNORE INTO vendor (vendor_name) VALUES (?);";
+        String statementCheck =  "SELECT idvendor FROM vendor WHERE vendor_name=?;";
         
         try {
             connection = getConnection();
@@ -93,7 +135,7 @@ public class DBConnector extends DBBase {
         try {
             connection = getConnection(); 
             System.out.println("Status: " + getStatusMessage());
-            String statement = "INSERT INTO transaction(value,vendor,card,date) VALUES(?,?,?,?);";
+            String statement = "INSERT INTO transaction(value,idvendor,card,date) VALUES(?,?,?,?);";
            
             pstmt = connection.prepareStatement(statement);
             pstmt.setFloat(1, t.getValue());
@@ -118,9 +160,9 @@ public class DBConnector extends DBBase {
         try {
            connection = getConnection(); 
            System.out.println("Status: " + getStatusMessage());
-           String statement =   "SELECT transactionid,value,date,card,transaction.vendor,name,tag FROM transaction "
-                              + "INNER JOIN vendor ON transaction.vendor=vendor.idvendor "
-                              + "LEFT JOIN tag_to_vendor ON vendor.idvendor=tag_to_vendor.vendor;";
+           String statement =   "SELECT idtransaction,value,date,card,transaction.idvendor,vendor_name,tag_name FROM transaction "
+                              + "INNER JOIN vendor ON transaction.idvendor=vendor.idvendor "
+                              + "LEFT JOIN tag ON vendor.idtag=tag.idtag;";
            
            pstmt = connection.prepareStatement(statement);
            rs = pstmt.executeQuery();
@@ -130,7 +172,7 @@ public class DBConnector extends DBBase {
                
                t.setValue(rs.getFloat("value"));
                t.setCard(rs.getString("card"));
-               t.setLocation(rs.getInt("vendor"), rs.getString("name"), rs.getString("tag"));
+               t.setLocation(rs.getInt("idvendor"), rs.getString("vendor_name"), rs.getString("tag_name"));
                t.setDate(rs.getDate("date"));
                
                result.add(t);
@@ -152,15 +194,15 @@ public class DBConnector extends DBBase {
         
         try {
             connection = getConnection();
-            String statement = "select idvendor,name,tag from vendor "
-                              + "left join tag_to_vendor on vendor.idvendor=tag_to_vendor.vendor;";
+            String statement = "SELECT idvendor,vendor_name,tag_name FROM vendor "
+                              + "LEFT JOIN tag ON vendor.idtag=tag.idtag;";
             pstmt = connection.prepareStatement(statement);
             rs = pstmt.executeQuery();
             while(rs.next()) {
                 VendorDTO v = new VendorDTO();
                 v.setId(rs.getInt("idvendor"));
-                v.setName(rs.getString("name"));
-                v.setTag(rs.getString("tag"));
+                v.setName(rs.getString("vendor_name"));
+                v.setTag(rs.getString("tag_name"));
                 result.add(v);
             }
         } catch(SQLException e) { e.printStackTrace(); }
@@ -226,9 +268,9 @@ public class DBConnector extends DBBase {
             do {
                 rs_vendor.first();
                 do {
-                    System.out.println("Setting transaction (" + rs_transaction.getInt("transactionid") + ", " + rs_transaction.getString("vendor") + ") to vendor (" + rs_vendor.getInt("idvendor") + ", " + rs_vendor.getString("name") + ")" );
-                    if (rs_transaction.getString("vendor").equals(rs_vendor.getString("name"))) {
-                        String insertStatement = "update transaction set vendor2=? where transactionid=?;";
+                    System.out.println("Setting transaction (" + rs_transaction.getInt("idtransaction") + ", " + rs_transaction.getString("idvendor") + ") to vendor (" + rs_vendor.getInt("idvendor") + ", " + rs_vendor.getString("vendor_name") + ")" );
+                    if (rs_transaction.getString("idvendor").equals(rs_vendor.getString("name"))) {
+                        String insertStatement = "UPDATE transaction SET vendor2=? where transactionid=?;";
                         
                         try (PreparedStatement pstmt_insert = connection.prepareStatement(insertStatement)) {
                             pstmt_insert.setInt(1, rs_vendor.getInt("idvendor"));

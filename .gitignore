@@ -1,1 +1,2 @@
 *.properties
+java/target/*
